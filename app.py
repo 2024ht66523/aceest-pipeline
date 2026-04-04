@@ -62,9 +62,9 @@ def create_app(test_db=None):
 
     # ---------- HELPERS ----------
     def safe_float(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
         return 0.0
 
     # ---------- LOGIN ----------
