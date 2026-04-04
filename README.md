@@ -28,6 +28,7 @@ fitnessandgym/
 │── templates/
 │    └── index.html
 │── Dockerfile
+│── aceest.db
 │── .github/
 │    └── workflows/
 │         └── main.yml
