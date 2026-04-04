@@ -65,7 +65,7 @@ def create_app(test_db=None):
         try:
             return float(v)
         except (TypeError, ValueError):
-        return 0.0
+            return 0.0
 
     # ---------- LOGIN ----------
     @app.route("/", methods=["GET", "POST"])
