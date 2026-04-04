@@ -4,6 +4,9 @@ from app import create_app
 
 @pytest.fixture
 def client():
+    if os.path.exists("test.db"):
+        os.remove("test.db")
+
     app = create_app("test.db")
     app.config["TESTING"] = True
     return app.test_client()
