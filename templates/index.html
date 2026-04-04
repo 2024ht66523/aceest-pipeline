@@ -1,25 +1,26 @@
 <!DOCTYPE html>
 <html>
-<body style="background:#1a1a1a;color:white;font-family:Arial">
+<body style="background:#1a1a1a;color:white">
 
-<h1 style="color:gold">ACEest Fitness</h1>
+<h1>ACEest Dashboard</h1>
 
 <form method="POST">
 
-<!-- 🔥 CLIENT DROPDOWN -->
-<label>Select Client:</label>
-<select name="name" required>
+<label>New Client Name:</label>
+<input name="new_name" placeholder="Enter new name">
+
+<label>Select Existing Client:</label>
+<select name="selected_client">
     <option value="">-- Select Client --</option>
     {% for c in clients %}
     <option value="{{c}}">{{c}}</option>
     {% endfor %}
 </select>
 
-<input name="age" placeholder="Age">
-<input name="height" placeholder="Height">
+<br><br>
+
 <input name="weight" placeholder="Weight">
-<input name="waist" placeholder="Waist">
-<input name="bodyfat" placeholder="Body Fat">
+<input name="membership" placeholder="Membership Expiry">
 
 <select name="program">
 {% for p in programs %}
@@ -27,27 +28,24 @@
 {% endfor %}
 </select>
 
-<input name="target_weight" placeholder="Target Weight">
-<input name="target_adherence" placeholder="Target Adherence">
-
-<input type="range" name="adherence" min="0" max="100">
-
 <br><br>
 
-<button name="action" value="save_client">Save Client</button>
-<button name="action" value="load_client">Load Client</button>
-<button name="action" value="save_progress">Save Progress</button>
-<button name="action" value="save_metrics">Save Metrics</button>
-<button name="action" value="show_chart">Show Chart</button>
+<button name="action" value="save_client">Save</button>
+<button name="action" value="load_client">Load</button>
+<button name="action" value="generate_ai">AI Program</button>
+<button name="action" value="export_pdf">Export PDF</button>
 
 </form>
 
-{% if summary %}
 <pre>{{summary}}</pre>
-{% endif %}
 
-{% if chart %}
-<img src="data:image/png;base64,{{chart}}">
+{% if ai_program %}
+<h3>AI Program</h3>
+<ul>
+{% for item in ai_program %}
+<li>{{item.day}} - {{item.exercise}} ({{item.sets}}x{{item.reps}})</li>
+{% endfor %}
+</ul>
 {% endif %}
 
 </body>
