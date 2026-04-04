@@ -8,6 +8,7 @@ from flask import Flask, render_template, request
 
 matplotlib.use("Agg")
 
+
 DB_NAME = "aceest.db"
 
 def create_app(test_db=None):
