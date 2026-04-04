@@ -1,18 +1,25 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>ACEest Fitness</title>
-</head>
-<body style="background:#1a1a1a; color:white; font-family:Arial">
+<body style="background:#1a1a1a;color:white;font-family:Arial">
 
-<h1 style="color:gold;">ACEest Fitness System</h1>
+<h1 style="color:gold">ACEest Fitness</h1>
 
 <form method="POST">
 
-<input name="name" placeholder="Name" required>
+<!-- 🔥 CLIENT DROPDOWN -->
+<label>Select Client:</label>
+<select name="name" required>
+    <option value="">-- Select Client --</option>
+    {% for c in clients %}
+    <option value="{{c}}">{{c}}</option>
+    {% endfor %}
+</select>
+
 <input name="age" placeholder="Age">
 <input name="height" placeholder="Height">
 <input name="weight" placeholder="Weight">
+<input name="waist" placeholder="Waist">
+<input name="bodyfat" placeholder="Body Fat">
 
 <select name="program">
 {% for p in programs %}

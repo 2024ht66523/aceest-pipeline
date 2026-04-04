@@ -1,29 +1,45 @@
 import pytest
+import os
 from app import create_app
+
+TEST_DB = "test.db"
 
 @pytest.fixture
 def client():
-    app = create_app("test.db")
+    if os.path.exists(TEST_DB):
+        os.remove(TEST_DB)
+
+    app = create_app(TEST_DB)
     app.config["TESTING"] = True
+
     return app.test_client()
 
+
 def test_home(client):
-    res = client.get("/")
-    assert res.status_code == 200
+    assert client.get("/").status_code == 200
+
 
 def test_save_client(client):
     res = client.post("/", data={
-        "name": "Test",
+        "name": "TestUser",
         "weight": "70",
-        "program": "Fat Loss (FL)",
+        "program": "Fat Loss (FL) – 3 day",
         "action": "save_client"
     })
     assert res.status_code == 200
 
-def test_progress(client):
-    res = client.post("/", data={
-        "name": "Test",
-        "adherence": "80",
-        "action": "save_progress"
+
+def test_load_client(client):
+    client.post("/", data={
+        "name": "TestUser",
+        "weight": "70",
+        "program": "Fat Loss (FL) – 3 day",
+        "action": "save_client"
     })
-    assert res.status_code == 200
+
+    res = client.post("/", data={
+        "name": "TestUser",
+        "action": "load_client"
+    })
+
+    assert b"CLIENT PROFILE" in res.data
