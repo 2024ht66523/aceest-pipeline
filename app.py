@@ -8,36 +8,52 @@ from flask import Flask, render_template, request
 
 matplotlib.use("Agg")
 
-
 DB_NAME = "aceest.db"
+
 
 def create_app(test_db=None):
     app = Flask(__name__)
+
     DB = test_db if test_db else DB_NAME
 
-    # ---------- DB ----------
+    # ---------- DB INIT ----------
     def init_db():
         conn = sqlite3.connect(DB)
         cur = conn.cursor()
 
+        # Clients
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS clients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE,
-                age INTEGER,
-                weight REAL,
-                program TEXT,
-                calories INTEGER
-            )
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            age INTEGER,
+            height REAL,
+            weight REAL,
+            program TEXT,
+            calories INTEGER,
+            target_weight REAL,
+            target_adherence INTEGER
+        )
         """)
 
+        # Progress
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS progress (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                client_name TEXT,
-                week TEXT,
-                adherence INTEGER
-            )
+        CREATE TABLE IF NOT EXISTS progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_name TEXT,
+            week TEXT,
+            adherence INTEGER
+        )
+        """)
+
+        # Metrics
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_name TEXT,
+            date TEXT,
+            weight REAL
+        )
         """)
 
         conn.commit()
@@ -45,12 +61,14 @@ def create_app(test_db=None):
 
     init_db()
 
+    # ---------- PROGRAMS ----------
     programs = {
         "Fat Loss (FL)": 22,
         "Muscle Gain (MG)": 35,
         "Beginner (BG)": 26
     }
 
+    # ---------- ROUTE ----------
     @app.route("/", methods=["GET", "POST"])
     def home():
         conn = sqlite3.connect(DB)
@@ -59,78 +77,111 @@ def create_app(test_db=None):
         summary = ""
         chart = None
 
-        # SAVE CLIENT
-        if request.method == "POST" and request.form.get("action") == "save_client":
+        if request.method == "POST":
+            action = request.form.get("action")
             name = request.form.get("name")
-            age = request.form.get("age", 0)
-            weight = float(request.form.get("weight", 0))
-            program = request.form.get("program")
 
-            calories = int(weight * programs[program])
+            # ---------- SAVE CLIENT ----------
+            if action == "save_client":
+                try:
+                    age = request.form.get("age")
+                    height = request.form.get("height")
+                    weight = float(request.form.get("weight", 0))
+                    program = request.form.get("program")
 
-            cur.execute("""
-                INSERT OR REPLACE INTO clients (name, age, weight, program, calories)
-                VALUES (?, ?, ?, ?, ?)
-            """, (name, age, weight, program, calories))
-            conn.commit()
+                    if program not in programs:
+                        raise ValueError("Invalid program")
 
-        # LOAD CLIENT
-        if request.method == "POST" and request.form.get("action") == "load_client":
-            name = request.form.get("name")
-            cur.execute("SELECT * FROM clients WHERE name=?", (name,))
-            row = cur.fetchone()
+                    calories = int(weight * programs[program])
 
-            if row:
-                _, name, age, weight, program, calories = row
-                summary = f"""
+                    cur.execute("""
+                    INSERT OR REPLACE INTO clients
+                    (name, age, height, weight, program, calories, target_weight, target_adherence)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        name,
+                        age if age else None,
+                        height if height else None,
+                        weight,
+                        program,
+                        calories,
+                        request.form.get("target_weight") or None,
+                        request.form.get("target_adherence") or None
+                    ))
+
+                    conn.commit()
+
+                except Exception as e:
+                    print("Error saving client:", e)
+
+            # ---------- LOAD CLIENT ----------
+            elif action == "load_client":
+                cur.execute("SELECT * FROM clients WHERE name=?", (name,))
+                row = cur.fetchone()
+
+                if row:
+                    summary = f"""
 CLIENT PROFILE
 --------------
-Name      : {name}
-Age       : {age}
-Weight    : {weight} kg
-Program   : {program}
-Calories  : {calories} kcal/day
+Name       : {row[1]}
+Age        : {row[2]}
+Height     : {row[3]} cm
+Weight     : {row[4]} kg
+Program    : {row[5]}
+Calories   : {row[6]} kcal/day
+Target Wt  : {row[7]}
+Target Adh : {row[8]}
 """
 
-        # SAVE PROGRESS
-        if request.method == "POST" and request.form.get("action") == "save_progress":
-            name = request.form.get("name")
-            adherence = int(request.form.get("adherence", 0))
-            week = datetime.now().strftime("Week %U - %Y")
-
-            cur.execute("""
+            # ---------- SAVE PROGRESS ----------
+            elif action == "save_progress":
+                cur.execute("""
                 INSERT INTO progress (client_name, week, adherence)
                 VALUES (?, ?, ?)
-            """, (name, week, adherence))
-            conn.commit()
+                """, (
+                    name,
+                    datetime.now().strftime("Week %U - %Y"),
+                    int(request.form.get("adherence", 0))
+                ))
+                conn.commit()
 
-        # SHOW CHART (per client)
-        if request.method == "POST" and request.form.get("action") == "show_chart":
-            name = request.form.get("name")
+            # ---------- SAVE METRICS ----------
+            elif action == "save_metrics":
+                cur.execute("""
+                INSERT INTO metrics (client_name, date, weight)
+                VALUES (?, ?, ?)
+                """, (
+                    name,
+                    datetime.now().strftime("%Y-%m-%d"),
+                    float(request.form.get("weight", 0))
+                ))
+                conn.commit()
 
-            cur.execute("""
+            # ---------- SHOW CHART ----------
+            elif action == "show_chart":
+                cur.execute("""
                 SELECT week, adherence
                 FROM progress
                 WHERE client_name=?
                 ORDER BY id
-            """, (name,))
-            data = cur.fetchall()
+                """, (name,))
+                data = cur.fetchall()
 
-            if data:
-                weeks = [d[0] for d in data]
-                adherence_vals = [d[1] for d in data]
+                if data:
+                    weeks = [d[0] for d in data]
+                    adherence_vals = [d[1] for d in data]
 
-                fig, ax = plt.subplots()
-                ax.plot(weeks, adherence_vals, marker="o")
-                ax.set_title(f"Progress - {name}")
-                ax.set_ylabel("Adherence %")
-                plt.xticks(rotation=45)
+                    fig, ax = plt.subplots()
+                    ax.plot(weeks, adherence_vals, marker="o")
+                    ax.set_title(f"Adherence - {name}")
+                    ax.set_ylabel("Adherence %")
+                    plt.xticks(rotation=45)
 
-                buf = io.BytesIO()
-                plt.savefig(buf, format="png")
-                buf.seek(0)
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format="png")
+                    buf.seek(0)
 
-                chart = base64.b64encode(buf.getvalue()).decode()
+                    chart = base64.b64encode(buf.getvalue()).decode()
 
         conn.close()
 
@@ -144,6 +195,7 @@ Calories  : {calories} kcal/day
     return app
 
 
+# ---------- RUN ----------
 app = create_app()
 
 if __name__ == "__main__":

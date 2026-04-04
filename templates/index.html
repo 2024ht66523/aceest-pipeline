@@ -2,51 +2,46 @@
 <html>
 <head>
     <title>ACEest Fitness</title>
-    <style>
-        body { background:#1a1a1a; color:white; font-family:Arial; }
-        .container { width:70%; margin:auto; padding:20px; }
-        input, select, button { width:100%; padding:10px; margin:8px 0; }
-        .box { border:1px solid gold; padding:15px; margin-top:10px; }
-        h1,h2 { color:gold; }
-    </style>
 </head>
+<body style="background:#1a1a1a; color:white; font-family:Arial">
 
-<body>
-<div class="container">
-
-<h1>ACEest FITNESS SYSTEM</h1>
+<h1 style="color:gold;">ACEest Fitness System</h1>
 
 <form method="POST">
-    <input name="name" placeholder="Name" required>
-    <input name="age" type="number" placeholder="Age">
-    <input name="weight" type="number" placeholder="Weight">
 
-    <select name="program">
-        {% for p in programs %}
-        <option value="{{p}}">{{p}}</option>
-        {% endfor %}
-    </select>
+<input name="name" placeholder="Name" required>
+<input name="age" placeholder="Age">
+<input name="height" placeholder="Height">
+<input name="weight" placeholder="Weight">
 
-    <label>Adherence</label>
-    <input type="range" name="adherence" min="0" max="100">
+<select name="program">
+{% for p in programs %}
+<option>{{p}}</option>
+{% endfor %}
+</select>
 
-    <button name="action" value="save_client">Save Client</button>
-    <button name="action" value="load_client">Load Client</button>
-    <button name="action" value="save_progress">Save Progress</button>
-    <button name="action" value="show_chart">View Progress Chart</button>
+<input name="target_weight" placeholder="Target Weight">
+<input name="target_adherence" placeholder="Target Adherence">
+
+<input type="range" name="adherence" min="0" max="100">
+
+<br><br>
+
+<button name="action" value="save_client">Save Client</button>
+<button name="action" value="load_client">Load Client</button>
+<button name="action" value="save_progress">Save Progress</button>
+<button name="action" value="save_metrics">Save Metrics</button>
+<button name="action" value="show_chart">Show Chart</button>
+
 </form>
 
 {% if summary %}
-<div class="box">
 <pre>{{summary}}</pre>
-</div>
 {% endif %}
 
 {% if chart %}
-<h2>Progress Chart</h2>
 <img src="data:image/png;base64,{{chart}}">
 {% endif %}
 
-</div>
 </body>
 </html>
