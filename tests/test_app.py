@@ -15,7 +15,7 @@ def test_login(client):
     assert res.status_code in (200, 302)
 
 def test_dashboard(client):
-    client.post("/", data={"username":"admin","password":"admin"})
+    client.post("/", data={"username": "admin","password": "admin"})
     res = client.get("/dashboard")
     assert res.status_code == 200
 
