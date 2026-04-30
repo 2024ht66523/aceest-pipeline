@@ -1,12 +1,7 @@
-import matplotlib
-import matplotlib.pyplot as plt
-import io
-import base64
 import sqlite3
-from datetime import datetime
-from flask import Flask, render_template, request
-
-matplotlib.use("Agg")
+import random
+from flask import Flask, render_template, request, redirect, session
+from fpdf import FPDF
 
 
 DB_NAME = "aceest.db"
@@ -14,6 +9,8 @@ DB_NAME = "aceest.db"
 
 def create_app(test_db=None):
     app = Flask(__name__)
+    app.secret_key = "secret123"
+
     DB = test_db if test_db else DB_NAME
 
     def init_db():
@@ -21,9 +18,22 @@ def create_app(test_db=None):
         cur = conn.cursor()
 
         if test_db:
+            cur.execute("DROP TABLE IF EXISTS users")
             cur.execute("DROP TABLE IF EXISTS clients")
-            cur.execute("DROP TABLE IF EXISTS progress")
-            cur.execute("DROP TABLE IF EXISTS metrics")
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            role TEXT
+        )
+        """)
+
+        cur.execute("""
+        INSERT OR IGNORE INTO users (username,password,role)
+        VALUES ('admin','admin','Admin')
+        """)
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS clients (
@@ -34,28 +44,7 @@ def create_app(test_db=None):
             weight REAL,
             program TEXT,
             calories INTEGER,
-            target_weight REAL,
-            target_adherence INTEGER
-        )
-        """)
-
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS progress (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_name TEXT,
-            week TEXT,
-            adherence INTEGER
-        )
-        """)
-
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS metrics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_name TEXT,
-            date TEXT,
-            weight REAL,
-            waist REAL,
-            bodyfat REAL
+            membership_expiry TEXT
         )
         """)
 
@@ -71,118 +60,115 @@ def create_app(test_db=None):
         "Beginner (BG)": 26,
     }
 
+    # ---------- HELPERS ----------
+    def safe_float(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    # ---------- LOGIN ----------
     @app.route("/", methods=["GET", "POST"])
-    def home():
+    def login():
+        if request.method == "POST":
+            username = request.form.get("username")
+            password = request.form.get("password")
+
+            conn = sqlite3.connect(DB)
+            cur = conn.cursor()
+            cur.execute("SELECT role FROM users WHERE username=? AND password=?",
+                        (username, password))
+            row = cur.fetchone()
+            conn.close()
+
+            if row:
+                session["user"] = username
+                return redirect("/dashboard")
+
+        return render_template("login.html")
+
+    # ---------- DASHBOARD ----------
+    @app.route("/dashboard", methods=["GET", "POST"])
+    def dashboard():
+        if "user" not in session:
+            return redirect("/")
+
         conn = sqlite3.connect(DB)
         cur = conn.cursor()
 
         summary = ""
-        chart = ""
+        ai_program = []
 
         if request.method == "POST":
             action = request.form.get("action")
-            name = request.form.get("name")
 
-            # SAVE CLIENT
-            if action == "save_client":
-                weight = float(request.form.get("weight", 0))
-                program = request.form.get("program")
+            new_name = request.form.get("new_name")
+            selected = request.form.get("selected_client")
+            name = selected if selected else new_name
 
-                calories = int(weight * programs.get(program, 1))
+            if not name:
+                summary = "⚠️ Please enter or select a client"
+            else:
 
-                cur.execute("""
-                INSERT OR REPLACE INTO clients
-                (name, age, height, weight, program, calories, target_weight, target_adherence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    name,
-                    request.form.get("age"),
-                    request.form.get("height"),
-                    weight,
-                    program,
-                    calories,
-                    request.form.get("target_weight"),
-                    request.form.get("target_adherence")
-                ))
-                conn.commit()
+                if action == "save_client":
+                    weight = safe_float(request.form.get("weight"))
+                    program = request.form.get("program")
+                    calories = int(weight * programs.get(program, 1))
 
-            # LOAD CLIENT
-            elif action == "load_client":
-                if not name:
-                    summary = "⚠️ Please select a client"
-                else:
+                    cur.execute("""
+                    INSERT OR REPLACE INTO clients
+                    (name, age, height, weight, program, calories, membership_expiry)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        name,
+                        request.form.get("age"),
+                        request.form.get("height"),
+                        weight,
+                        program,
+                        calories,
+                        request.form.get("membership")
+                    ))
+                    conn.commit()
+
+                elif action == "load_client":
                     cur.execute("SELECT * FROM clients WHERE name=?", (name,))
                     row = cur.fetchone()
-
                     if row:
                         summary = f"""
-CLIENT PROFILE
---------------
 Name: {row[1]}
 Weight: {row[4]}
 Program: {row[5]}
 Calories: {row[6]}
 """
 
-            # SAVE PROGRESS
-            elif action == "save_progress":
-                cur.execute("""
-                INSERT INTO progress (client_name, week, adherence)
-                VALUES (?, ?, ?)
-                """, (
-                    name,
-                    datetime.now().strftime("Week %U - %Y"),
-                    int(request.form.get("adherence", 0))
-                ))
-                conn.commit()
+                elif action == "generate_ai":
+                    exercises = ["Squat", "Bench", "Deadlift", "Row", "Pullup"]
+                    for i in range(3):
+                        ai_program.append({
+                            "day": f"Day {i+1}",
+                            "exercise": random.choice(exercises),
+                            "sets": random.randint(3, 5),
+                            "reps": random.randint(8, 12)
+                        })
 
-            # SAVE METRICS
-            elif action == "save_metrics":
-                cur.execute("""
-                INSERT INTO metrics (client_name, date, weight, waist, bodyfat)
-                VALUES (?, ?, ?, ?, ?)
-                """, (
-                    name,
-                    datetime.now().strftime("%Y-%m-%d"),
-                    float(request.form.get("weight", 0)),
-                    float(request.form.get("waist", 0)),
-                    float(request.form.get("bodyfat", 0))
-                ))
-                conn.commit()
+                elif action == "export_pdf":
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", size=12)
+                    pdf.cell(200, 10, txt=f"Report: {name}", ln=True)
+                    pdf.output(f"{name}.pdf")
 
-            # SHOW CHART
-            elif action == "show_chart":
-                cur.execute("""
-                SELECT week, adherence FROM progress
-                WHERE client_name=? ORDER BY id
-                """, (name,))
-                data = cur.fetchall()
-
-                if data:
-                    x = [d[0] for d in data]
-                    y = [d[1] for d in data]
-
-                    fig, ax = plt.subplots()
-                    ax.plot(x, y, marker="o")
-
-                    buf = io.BytesIO()
-                    plt.savefig(buf, format="png")
-                    buf.seek(0)
-
-                    chart = base64.b64encode(buf.getvalue()).decode()
-
-        # 🔥 FETCH CLIENT LIST
-        cur.execute("SELECT name FROM clients ORDER BY name")
-        clients = [row[0] for row in cur.fetchall()]
+        cur.execute("SELECT name FROM clients")
+        clients = [c[0] for c in cur.fetchall()]
 
         conn.close()
 
         return render_template(
             "index.html",
             programs=programs,
+            clients=clients,
             summary=summary,
-            chart=chart,
-            clients=clients
+            ai_program=ai_program
         )
 
     return app
@@ -191,4 +177,4 @@ Calories: {row[6]}
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
