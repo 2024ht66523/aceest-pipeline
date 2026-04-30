@@ -6,25 +6,12 @@
 
 <form method="POST">
 
-<label>New Client Name:</label>
-<input name="new_name" placeholder="Enter new name">
+<input name="new_name" placeholder="New client">
 
-<label>Select Existing Client:</label>
 <select name="selected_client">
-    <option value="">-- Select Client --</option>
-    {% for c in clients %}
-    <option value="{{c}}">{{c}}</option>
-    {% endfor %}
-</select>
-
-<br><br>
-
-<input name="weight" placeholder="Weight">
-<input name="membership" placeholder="Membership Expiry">
-
-<select name="program">
-{% for p in programs %}
-<option>{{p}}</option>
+<option value="">Select Client</option>
+{% for c in clients %}
+<option>{{c}}</option>
 {% endfor %}
 </select>
 
@@ -32,21 +19,31 @@
 
 <button name="action" value="save_client">Save</button>
 <button name="action" value="load_client">Load</button>
-<button name="action" value="generate_ai">AI Program</button>
-<button name="action" value="export_pdf">Export PDF</button>
+<button name="action" value="generate_program">Generate Program</button>
+<button name="action" value="export_pdf">PDF</button>
+
+<br><br>
+
+<h3>Add Workout</h3>
+<input name="date" placeholder="YYYY-MM-DD">
+<input name="type" placeholder="Type">
+<input name="duration" placeholder="Duration">
+<input name="notes" placeholder="Notes">
+
+<button name="action" value="add_workout">Add Workout</button>
 
 </form>
 
-<pre>{{summary}}</pre>
+<p>{{message}}</p>
 
-{% if ai_program %}
-<h3>AI Program</h3>
+<h3>Program: {{program}}</h3>
+
+<h3>Workouts</h3>
 <ul>
-{% for item in ai_program %}
-<li>{{item.day}} - {{item.exercise}} ({{item.sets}}x{{item.reps}})</li>
+{% for w in workouts %}
+<li>{{w[0]}} - {{w[1]}} ({{w[2]}} min)</li>
 {% endfor %}
 </ul>
-{% endif %}
 
 </body>
 </html>
