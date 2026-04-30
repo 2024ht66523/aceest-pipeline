@@ -10,7 +10,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/2024ht66523/aceest-pipeline.git'
+                git branch: 'main', url: 'https://github.com/2024ht66523/aceest-pipeline.git'
             }
         }
 
