@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "indervijay/aceest-gym"
-        TAG = "TAG = "${BUILD_NUMBER}""
+        TAG = "TAG = "${BUILD_NUMBER}"
     }
 
     stages {
