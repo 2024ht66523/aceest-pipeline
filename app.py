@@ -145,7 +145,7 @@ Calories: {row[6]}
                     exercises = ["Squat", "Bench", "Deadlift", "Row", "Pullup"]
                     for i in range(3):
                         ai_program.append({
-                            "day": f"Day {i+1}",
+                            "day": f"Day {i + 1}",
                             "exercise": random.choice(exercises),
                             "sets": random.randint(3, 5),
                             "reps": random.randint(8, 12)
