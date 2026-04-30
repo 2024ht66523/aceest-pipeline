@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>ACEest Fitness</title>
-
     <style>
         body { background:#1a1a1a; color:white; font-family:Arial; }
         .container { width:70%; margin:auto; padding:20px; }
@@ -31,20 +30,18 @@
     <label>Adherence</label>
     <input type="range" name="adherence" min="0" max="100">
 
-    <!-- BUTTONS -->
     <button name="action" value="save_client">Save Client</button>
     <button name="action" value="load_client">Load Client</button>
     <button name="action" value="save_progress">Save Progress</button>
+    <button name="action" value="show_chart">View Progress Chart</button>
 </form>
 
-<!-- SUMMARY -->
 {% if summary %}
 <div class="box">
-    <pre>{{summary}}</pre>
+<pre>{{summary}}</pre>
 </div>
 {% endif %}
 
-<!-- CHART -->
 {% if chart %}
 <h2>Progress Chart</h2>
 <img src="data:image/png;base64,{{chart}}">

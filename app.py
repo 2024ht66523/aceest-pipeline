@@ -7,14 +7,17 @@ from datetime import datetime
 from flask import Flask, render_template, request
 
 matplotlib.use("Agg")
+
+
 DB_NAME = "aceest.db"
 
-def create_app():
+def create_app(test_db=None):
     app = Flask(__name__)
+    DB = test_db if test_db else DB_NAME
 
     # ---------- DB ----------
     def init_db():
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect(DB)
         cur = conn.cursor()
 
         cur.execute("""
@@ -42,17 +45,15 @@ def create_app():
 
     init_db()
 
-    # ---------- PROGRAMS ----------
     programs = {
         "Fat Loss (FL)": 22,
         "Muscle Gain (MG)": 35,
         "Beginner (BG)": 26
     }
 
-    # ---------- HOME ----------
     @app.route("/", methods=["GET", "POST"])
     def home():
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect(DB)
         cur = conn.cursor()
 
         summary = ""
@@ -76,21 +77,20 @@ def create_app():
         # LOAD CLIENT
         if request.method == "POST" and request.form.get("action") == "load_client":
             name = request.form.get("name")
-
             cur.execute("SELECT * FROM clients WHERE name=?", (name,))
             row = cur.fetchone()
 
             if row:
                 _, name, age, weight, program, calories = row
                 summary = f"""
-                CLIENT PROFILE
-                --------------
-                Name     : {name}
-                Age      : {age}
-                Weight   : {weight} kg
-                Program  : {program}
-                Calories : {calories} kcal/day
-                """
+CLIENT PROFILE
+--------------
+Name      : {name}
+Age       : {age}
+Weight    : {weight} kg
+Program   : {program}
+Calories  : {calories} kcal/day
+"""
 
         # SAVE PROGRESS
         if request.method == "POST" and request.form.get("action") == "save_progress":
@@ -104,23 +104,33 @@ def create_app():
             """, (name, week, adherence))
             conn.commit()
 
-        # FETCH PROGRESS FOR CHART
-        cur.execute("SELECT client_name, adherence FROM progress")
-        data = cur.fetchall()
+        # SHOW CHART (per client)
+        if request.method == "POST" and request.form.get("action") == "show_chart":
+            name = request.form.get("name")
 
-        if data:
-            names = [d[0] for d in data]
-            adherence_vals = [d[1] for d in data]
+            cur.execute("""
+                SELECT week, adherence
+                FROM progress
+                WHERE client_name=?
+                ORDER BY id
+            """, (name,))
+            data = cur.fetchall()
 
-            fig, ax = plt.subplots()
-            ax.bar(names, adherence_vals)
-            ax.set_ylabel("Adherence %")
+            if data:
+                weeks = [d[0] for d in data]
+                adherence_vals = [d[1] for d in data]
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format="png")
-            buf.seek(0)
+                fig, ax = plt.subplots()
+                ax.plot(weeks, adherence_vals, marker="o")
+                ax.set_title(f"Progress - {name}")
+                ax.set_ylabel("Adherence %")
+                plt.xticks(rotation=45)
 
-            chart = base64.b64encode(buf.getvalue()).decode()
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png")
+                buf.seek(0)
+
+                chart = base64.b64encode(buf.getvalue()).decode()
 
         conn.close()
 
