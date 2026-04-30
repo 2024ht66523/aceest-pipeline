@@ -1,42 +1,26 @@
-import pytest
-import os
 from app import create_app
 
+def test_home():
+    app = create_app()
+    client = app.test_client()
 
-@pytest.fixture
-def client():
-    if os.path.exists("test.db"):
-        os.remove("test.db")
-
-    app = create_app("test.db")
-    app.config["TESTING"] = True
-    return app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Welcome" in response.data
 
 
-def test_login(client):
-    res = client.post("/", data={
-        "username": "admin",
-        "password": "admin"
-    })
-    assert res.status_code in (200, 302)
+def test_get_programs():
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/programs")
+    assert response.status_code == 200
+    assert isinstance(response.json, dict)
 
 
-def test_dashboard(client):
-    client.post("/", data={
-        "username": "admin",
-        "password": "admin"
-    })
-    res = client.get("/dashboard")
-    assert res.status_code == 200
+def test_invalid_program():
+    app = create_app()
+    client = app.test_client()
 
-
-def test_save_client(client):
-    client.post("/", data={
-        "username": "admin",
-        "password": "admin"
-    })
-    res = client.post("/dashboard", data={
-        "new_name": "TestUser",
-        "action": "save_client"
-    })
-    assert res.status_code == 200
+    response = client.get("/programs/invalid")
+    assert response.status_code == 404
