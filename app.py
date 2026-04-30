@@ -1,24 +1,35 @@
-from flask import Flask, jsonify
+import matplotlib
+import matplotlib.pyplot as plt
+import io
+import base64
+from flask import Flask, jsonify, render_template, request
+
+matplotlib.use("Agg")  # ✅ moved AFTER all imports
 
 def create_app():
     app = Flask(__name__)
 
+    clients = []
+
     programs = {
         "Fat Loss (FL)": {
-                "workout": "Mon: 5x5 Back Squat + AMRAP\nTue: EMOM 20min Assault Bike\nWed: Bench Press + 21-15-9\nThu: 10RFT Deadlifts/Box Jumps\nFri: 30min Active Recovery",
-                "diet": "B: 3 Egg Whites + Oats Idli\nL: Grilled Chicken + Brown Rice\nD: Fish Curry + Millet Roti\nTarget: 2,000 kcal",
-                "color": "#e74c3c"
-            },
-            "Muscle Gain (MG)": {
-                "workout": "Mon: Squat 5x5\nTue: Bench 5x5\nWed: Deadlift 4x6\nThu: Front Squat 4x8\nFri: Incline Press 4x10\nSat: Barbell Rows 4x10",
-                "diet": "B: 4 Eggs + PB Oats\nL: Chicken Biryani (250g Chicken)\nD: Mutton Curry + Jeera Rice\nTarget: 3,200 kcal",
-                "color": "#2ecc71"
-            },
-            "Beginner (BG)": {
-                "workout": "Circuit Training: Air Squats, Ring Rows, Push-ups.\nFocus: Technique Mastery & Form (90% Threshold)",
-                "diet": "Balanced Tamil Meals: Idli-Sambar, Rice-Dal, Chapati.\nProtein: 120g/day",
-                "color": "#3498db"
-            }
+            "workout": "Back Squat, Cardio, Bench, Deadlift, Recovery",
+            "diet": "Egg Whites, Chicken, Fish Curry",
+            "color": "#e74c3c",
+            "calorie_factor": 22
+        },
+        "Muscle Gain (MG)": {
+            "workout": "Squat, Bench, Deadlift, Press, Rows",
+            "diet": "Eggs, Biryani, Mutton Curry",
+            "color": "#2ecc71",
+            "calorie_factor": 35
+        },
+        "Beginner (BG)": {
+            "workout": "Air Squats, Ring Rows, Push-ups",
+            "diet": "Balanced Tamil Meals",
+            "color": "#3498db",
+            "calorie_factor": 26
+        }
     }
 
     @app.route("/")
@@ -34,6 +45,44 @@ def create_app():
         if name in programs:
             return jsonify(programs[name])
         return {"error": "Program not found"}, 404
+
+    @app.route("/ui", methods=["GET", "POST"])
+    def ui():
+        chart = None
+
+        if request.method == "POST":
+            name = request.form.get("name")
+            age = request.form.get("age")
+            weight = float(request.form.get("weight", 0))
+            program = request.form.get("program")
+            adherence = int(request.form.get("adherence", 0))
+            notes = request.form.get("notes")
+
+            if name and program:
+                clients.append((name, age, weight, program, adherence, notes))
+
+        # Generate chart
+        if clients:
+            names = [c[0] for c in clients]
+            adherence_vals = [c[4] for c in clients]
+
+            fig, ax = plt.subplots()
+            ax.bar(names, adherence_vals)
+            ax.set_ylabel("Adherence %")
+            ax.set_title("Client Progress")
+
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png")
+            buf.seek(0)
+
+            chart = base64.b64encode(buf.getvalue()).decode()
+
+        return render_template(
+            "index.html",
+            programs=programs,
+            clients=clients,
+            chart=chart
+        )
 
     return app
 

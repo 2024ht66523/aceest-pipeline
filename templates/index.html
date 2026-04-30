@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ACEest Fitness</title>
+
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial;
+        }
+        .container {
+            width: 70%;
+            margin: auto;
+            padding: 20px;
+        }
+        select, button, input {
+            padding: 10px;
+            margin: 8px 0;
+            width: 100%;
+        }
+        .box {
+            border: 1px solid gold;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            margin-top: 15px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid gold;
+            padding: 8px;
+        }
+        h1, h2 {
+            color: gold;
+        }
+    </style>
+
+    <script>
+        async function loadProgram() {
+            const program = document.getElementById("program").value;
+            const response = await fetch(`/programs/${program}`);
+            const data = await response.json();
+
+            document.getElementById("workout").innerText = data.workout;
+            document.getElementById("diet").innerText = data.diet;
+            document.getElementById("workout").style.color = data.color;
+        }
+    </script>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>ACEest FITNESS SYSTEM</h1>
+
+    <!-- PROGRAM VIEW -->
+    <label>Select Program:</label>
+    <select id="program">
+        {% for prog in programs %}
+            <option value="{{ prog }}">{{ prog }}</option>
+        {% endfor %}
+    </select>
+
+    <button onclick="loadProgram()">Show Plan</button>
+
+    <div class="box">
+        <h3>Workout</h3>
+        <p id="workout">Select a program</p>
+    </div>
+
+    <div class="box">
+        <h3>Diet</h3>
+        <p id="diet">Select a program</p>
+    </div>
+
+    <!-- CLIENT FORM -->
+    <hr>
+    <h2>Add Client</h2>
+
+    <form method="POST">
+        <input name="name" placeholder="Name" required>
+        <input name="age" type="number" placeholder="Age">
+        <input name="weight" type="number" placeholder="Weight">
+
+        <select name="program">
+            {% for prog in programs %}
+                <option value="{{ prog }}">{{ prog }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Adherence:</label>
+        <input type="range" name="adherence" min="0" max="100">
+
+        <input name="notes" placeholder="Notes">
+
+        <button type="submit">Save Client</button>
+    </form>
+
+    <!-- CLIENT TABLE -->
+    <h2>Clients</h2>
+    <table>
+        <tr>
+            <th>Name</th><th>Age</th><th>Weight</th>
+            <th>Program</th><th>Adherence</th><th>Notes</th>
+        </tr>
+
+        {% for c in clients %}
+        <tr>
+            <td>{{c[0]}}</td>
+            <td>{{c[1]}}</td>
+            <td>{{c[2]}}</td>
+            <td>{{c[3]}}</td>
+            <td>{{c[4]}}</td>
+            <td>{{c[5]}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- CHART -->
+    {% if chart %}
+    <h2>Progress Chart</h2>
+    <img src="data:image/png;base64,{{chart}}" width="600">
+    {% endif %}
+
+</div>
+</body>
+</html>
