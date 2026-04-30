@@ -2,74 +2,119 @@ import matplotlib
 import matplotlib.pyplot as plt
 import io
 import base64
-from flask import Flask, jsonify, render_template, request
+import sqlite3
+from datetime import datetime
+from flask import Flask, render_template, request
 
-matplotlib.use("Agg")  # ✅ moved AFTER all imports
+matplotlib.use("Agg")
+DB_NAME = "aceest.db"
 
 def create_app():
     app = Flask(__name__)
 
-    clients = []
+    # ---------- DB ----------
+    def init_db():
+        conn = sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                age INTEGER,
+                weight REAL,
+                program TEXT,
+                calories INTEGER
+            )
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_name TEXT,
+                week TEXT,
+                adherence INTEGER
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+
+    init_db()
+
+    # ---------- PROGRAMS ----------
     programs = {
-        "Fat Loss (FL)": {
-            "workout": "Back Squat, Cardio, Bench, Deadlift, Recovery",
-            "diet": "Egg Whites, Chicken, Fish Curry",
-            "color": "#e74c3c",
-            "calorie_factor": 22
-        },
-        "Muscle Gain (MG)": {
-            "workout": "Squat, Bench, Deadlift, Press, Rows",
-            "diet": "Eggs, Biryani, Mutton Curry",
-            "color": "#2ecc71",
-            "calorie_factor": 35
-        },
-        "Beginner (BG)": {
-            "workout": "Air Squats, Ring Rows, Push-ups",
-            "diet": "Balanced Tamil Meals",
-            "color": "#3498db",
-            "calorie_factor": 26
-        }
+        "Fat Loss (FL)": 22,
+        "Muscle Gain (MG)": 35,
+        "Beginner (BG)": 26
     }
 
-    @app.route("/")
+    # ---------- HOME ----------
+    @app.route("/", methods=["GET", "POST"])
     def home():
-        return {"message": "Welcome to ACEest Fitness API"}
+        conn = sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
 
-    @app.route("/programs")
-    def get_programs():
-        return jsonify(programs)
-
-    @app.route("/programs/<name>")
-    def get_program(name):
-        if name in programs:
-            return jsonify(programs[name])
-        return {"error": "Program not found"}, 404
-
-    @app.route("/ui", methods=["GET", "POST"])
-    def ui():
+        summary = ""
         chart = None
 
-        if request.method == "POST":
+        # SAVE CLIENT
+        if request.method == "POST" and request.form.get("action") == "save_client":
             name = request.form.get("name")
-            age = request.form.get("age")
+            age = request.form.get("age", 0)
             weight = float(request.form.get("weight", 0))
             program = request.form.get("program")
+
+            calories = int(weight * programs[program])
+
+            cur.execute("""
+                INSERT OR REPLACE INTO clients (name, age, weight, program, calories)
+                VALUES (?, ?, ?, ?, ?)
+            """, (name, age, weight, program, calories))
+            conn.commit()
+
+        # LOAD CLIENT
+        if request.method == "POST" and request.form.get("action") == "load_client":
+            name = request.form.get("name")
+
+            cur.execute("SELECT * FROM clients WHERE name=?", (name,))
+            row = cur.fetchone()
+
+            if row:
+                _, name, age, weight, program, calories = row
+                summary = f"""
+                CLIENT PROFILE
+                --------------
+                Name     : {name}
+                Age      : {age}
+                Weight   : {weight} kg
+                Program  : {program}
+                Calories : {calories} kcal/day
+                """
+
+        # SAVE PROGRESS
+        if request.method == "POST" and request.form.get("action") == "save_progress":
+            name = request.form.get("name")
             adherence = int(request.form.get("adherence", 0))
-            notes = request.form.get("notes")
+            week = datetime.now().strftime("Week %U - %Y")
 
-            if name and program:
-                clients.append((name, age, weight, program, adherence, notes))
+            cur.execute("""
+                INSERT INTO progress (client_name, week, adherence)
+                VALUES (?, ?, ?)
+            """, (name, week, adherence))
+            conn.commit()
 
-        # Generate chart
-        if clients:
-            names = [c[0] for c in clients]
-            adherence_vals = [c[4] for c in clients]
+        # FETCH PROGRESS FOR CHART
+        cur.execute("SELECT client_name, adherence FROM progress")
+        data = cur.fetchall()
+
+        if data:
+            names = [d[0] for d in data]
+            adherence_vals = [d[1] for d in data]
 
             fig, ax = plt.subplots()
             ax.bar(names, adherence_vals)
             ax.set_ylabel("Adherence %")
-            ax.set_title("Client Progress")
 
             buf = io.BytesIO()
             plt.savefig(buf, format="png")
@@ -77,10 +122,12 @@ def create_app():
 
             chart = base64.b64encode(buf.getvalue()).decode()
 
+        conn.close()
+
         return render_template(
             "index.html",
             programs=programs,
-            clients=clients,
+            summary=summary,
             chart=chart
         )
 
@@ -90,4 +137,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
